@@ -1,14 +1,26 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
 import { calculateBet, formatAmericanOdds, formatCurrency, settledAmounts } from '../lib/odds';
 import type { Bet } from '../types';
 
 type Props = {
   bet: Bet;
+  canMoveDown: boolean;
+  canMoveUp: boolean;
   onEdit: (bet: Bet) => void;
   onDelete: (bet: Bet) => void;
+  onMoveDown: () => void;
+  onMoveUp: () => void;
 };
 
-export default function BetCard({ bet, onEdit, onDelete }: Props) {
+export default function BetCard({
+  bet,
+  canMoveDown,
+  canMoveUp,
+  onEdit,
+  onDelete,
+  onMoveDown,
+  onMoveUp,
+}: Props) {
   const odds = bet.legs.map((leg) => leg.odds);
   const projected = calculateBet(bet.stake, odds);
   const displayed = bet.status === 'pending'
@@ -28,6 +40,12 @@ export default function BetCard({ bet, onEdit, onDelete }: Props) {
           </h2>
         </div>
         <div className="flex shrink-0 gap-2">
+          <button className="icon-button" type="button" title="Move up" disabled={!canMoveUp} onClick={onMoveUp}>
+            <ArrowUp size={17} />
+          </button>
+          <button className="icon-button" type="button" title="Move down" disabled={!canMoveDown} onClick={onMoveDown}>
+            <ArrowDown size={17} />
+          </button>
           <button className="icon-button" type="button" title="Edit" onClick={() => onEdit(bet)}>
             <Pencil size={17} />
           </button>

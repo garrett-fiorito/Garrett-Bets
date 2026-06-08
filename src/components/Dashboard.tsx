@@ -3,7 +3,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { LogOut, Plus, RefreshCw, Trophy } from 'lucide-react';
 import BetCard from './BetCard';
 import BetForm from './BetForm';
-import { deleteBet, fetchBets, saveBet } from '../lib/bets';
+import { deleteBet, fetchBets, saveBet, updateBetOrder } from '../lib/bets';
 import { calculateBet, formatCurrency } from '../lib/odds';
 import type { Bet, BetDraft, Database } from '../types';
 
@@ -46,8 +46,18 @@ export default function Dashboard({ session, supabase }: Props) {
   }, [loadBets]);
 
   const visibleBets = useMemo(() => {
-    if (view === 'past') return bets.filter((bet) => bet.status !== 'pending');
-    return bets.filter((bet) => bet.status === 'pending' && bet.category === view);
+    const filtered =
+      view === 'past'
+        ? bets.filter((bet) => bet.status !== 'pending')
+        : bets.filter((bet) => bet.status === 'pending' && bet.category === view);
+
+    return [...filtered].sort((first, second) => {
+      if (first.display_order !== second.display_order) {
+        return first.display_order - second.display_order;
+      }
+
+      return new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime();
+    });
   }, [bets, view]);
 
   const pendingExposure = useMemo(
@@ -78,6 +88,35 @@ export default function Dashboard({ session, supabase }: Props) {
 
     await deleteBet(supabase, bet.id);
     await loadBets();
+  }
+
+  async function moveBet(betId: string, direction: -1 | 1) {
+    const currentIndex = visibleBets.findIndex((bet) => bet.id === betId);
+    const nextIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= visibleBets.length) return;
+
+    const nextVisibleBets = [...visibleBets];
+    [nextVisibleBets[currentIndex], nextVisibleBets[nextIndex]] = [
+      nextVisibleBets[nextIndex],
+      nextVisibleBets[currentIndex],
+    ];
+
+    const orderById = new Map(nextVisibleBets.map((bet, index) => [bet.id, index]));
+
+    setBets((currentBets) =>
+      currentBets.map((bet) => ({
+        ...bet,
+        display_order: orderById.get(bet.id) ?? bet.display_order,
+      })),
+    );
+
+    try {
+      await updateBetOrder(supabase, nextVisibleBets);
+    } catch (orderError) {
+      setError(orderError instanceof Error ? orderError.message : 'Could not update order.');
+      await loadBets();
+    }
   }
 
   function editBet(bet: Bet) {
@@ -163,8 +202,17 @@ export default function Dashboard({ session, supabase }: Props) {
           </div>
         ) : visibleBets.length ? (
           <section className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-            {visibleBets.map((bet) => (
-              <BetCard key={bet.id} bet={bet} onEdit={editBet} onDelete={handleDelete} />
+            {visibleBets.map((bet, index) => (
+              <BetCard
+                key={bet.id}
+                bet={bet}
+                canMoveDown={index < visibleBets.length - 1}
+                canMoveUp={index > 0}
+                onDelete={handleDelete}
+                onEdit={editBet}
+                onMoveDown={() => moveBet(bet.id, 1)}
+                onMoveUp={() => moveBet(bet.id, -1)}
+              />
             ))}
           </section>
         ) : (

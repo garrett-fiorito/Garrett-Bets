@@ -126,6 +126,7 @@ export default function BetForm({ draft, onCancel, onSave }: Props) {
               inputMode="decimal"
               min="0"
               placeholder="100"
+              step="0.01"
               type="number"
               value={form.stake}
               onChange={(event) => setForm({ ...form, stake: event.target.value })}

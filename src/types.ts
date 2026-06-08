@@ -16,6 +16,7 @@ export type Bet = {
   category: BetCategory;
   status: BetStatus;
   stake: number;
+  display_order: number;
   created_at: string;
   updated_at: string;
   settled_at: string | null;
@@ -44,6 +45,7 @@ export type Database = {
           category: BetCategory;
           status: BetStatus;
           stake: number;
+          display_order: number;
           created_at: string;
           updated_at: string;
           settled_at: string | null;
@@ -54,12 +56,14 @@ export type Database = {
           category: BetCategory;
           status?: BetStatus;
           stake: number;
+          display_order?: number;
           settled_at?: string | null;
         };
         Update: {
           category?: BetCategory;
           status?: BetStatus;
           stake?: number;
+          display_order?: number;
           settled_at?: string | null;
         };
         Relationships: [];
