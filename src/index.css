@@ -6,10 +6,17 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 20% 0%, rgba(0, 229, 255, 0.12), transparent 32rem),
     radial-gradient(circle at 90% 10%, rgba(255, 61, 129, 0.13), transparent 30rem),
@@ -36,7 +43,7 @@ textarea:focus-visible {
 
 @layer components {
   .field {
-    @apply w-full rounded-md border border-line bg-ink/80 px-3 py-2 text-sm text-white placeholder:text-slate-500;
+    @apply w-full rounded-md border border-line bg-ink/80 px-3 py-2 text-base text-white placeholder:text-slate-500 sm:text-sm;
   }
 
   .label {
