@@ -1,4 +1,4 @@
-# Garrett Bets
+# Garrett's Bet Tracker
 
 Dark React/Supabase bet tracker for singles, futures, and parlays.
 

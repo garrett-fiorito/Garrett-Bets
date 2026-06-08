@@ -45,7 +45,7 @@ export default function AuthView({ supabase }: Props) {
             <Activity size={23} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Garrett Bets</h1>
+            <h1 className="text-2xl font-bold">Garrett's Bet Tracker</h1>
             <p className="text-sm text-slate-400">Track the card.</p>
           </div>
         </div>
