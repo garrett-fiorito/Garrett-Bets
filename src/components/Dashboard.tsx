@@ -198,7 +198,7 @@ export default function Dashboard({ session, supabase }: Props) {
 
         <section className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Current Risk" value={formatCurrency(pendingExposure)} />
-          <Stat label="Profit" value={formatCurrency(pendingPayout)} tone="lime" />
+          <Stat label="Potential Profit" value={formatCurrency(pendingPayout)} tone="lime" />
           <Stat label="All Time Win / Loss" value={formatCurrency(allTimeNet)} tone={allTimeNet >= 0 ? 'lime' : 'pink'} />
           <Stat label="Record" value={allTimeRecord} tone="cyan" />
         </section>
