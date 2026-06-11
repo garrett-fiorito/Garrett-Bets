@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, CalendarDays, Landmark, Pencil, Trash2 } from 'lucide-react';
 import { calculateBet, formatAmericanOdds, formatCurrency, settledAmounts } from '../lib/odds';
 import type { Bet } from '../types';
 
@@ -38,6 +38,18 @@ export default function BetCard({
           <h2 className="line-clamp-2 text-lg font-black">
             {bet.legs.length === 1 ? bet.legs[0]?.description : bet.legs.map((leg) => leg.description).join(' + ')}
           </h2>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold uppercase text-slate-400">
+            {bet.sportsbook ? (
+              <span className="inline-flex items-center gap-1">
+                <Landmark size={13} />
+                {bet.sportsbook}
+              </span>
+            ) : null}
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays size={13} />
+              {formatPlacedDate(bet.placed_at)}
+            </span>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
           <button className="icon-button" type="button" title="Move up" disabled={!canMoveUp} onClick={onMoveUp}>
@@ -72,6 +84,17 @@ export default function BetCard({
       </dl>
     </article>
   );
+}
+
+function formatPlacedDate(date: string) {
+  if (!date) return 'No date';
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`));
 }
 
 function Badge({ children, tone = 'lime' }: { children: string; tone?: 'lime' | 'cyan' | 'pink' }) {

@@ -17,6 +17,8 @@ export type Bet = {
   status: BetStatus;
   stake: number;
   display_order: number;
+  placed_at: string;
+  sportsbook: string;
   created_at: string;
   updated_at: string;
   settled_at: string | null;
@@ -28,6 +30,8 @@ export type BetDraft = {
   category: BetCategory;
   status: BetStatus;
   stake: string;
+  placed_at: string;
+  sportsbook: string;
   legs: Array<{
     id?: string;
     description: string;
@@ -46,6 +50,8 @@ export type Database = {
           status: BetStatus;
           stake: number;
           display_order: number;
+          placed_at: string;
+          sportsbook: string;
           created_at: string;
           updated_at: string;
           settled_at: string | null;
@@ -57,6 +63,8 @@ export type Database = {
           status?: BetStatus;
           stake: number;
           display_order?: number;
+          placed_at?: string;
+          sportsbook?: string;
           settled_at?: string | null;
         };
         Update: {
@@ -64,6 +72,8 @@ export type Database = {
           status?: BetStatus;
           stake?: number;
           display_order?: number;
+          placed_at?: string;
+          sportsbook?: string;
           settled_at?: string | null;
         };
         Relationships: [];

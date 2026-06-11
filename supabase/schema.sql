@@ -7,6 +7,8 @@ create table if not exists public.bets (
   status text not null default 'pending' check (status in ('pending', 'won', 'lost', 'push', 'void')),
   stake numeric(12, 2) not null check (stake >= 0),
   display_order numeric(20, 0) not null default ((extract(epoch from now()) * 1000)::numeric(20, 0)),
+  placed_at date not null default current_date,
+  sportsbook text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   settled_at timestamptz
@@ -14,6 +16,12 @@ create table if not exists public.bets (
 
 alter table public.bets
 add column if not exists display_order numeric(20, 0) not null default ((extract(epoch from now()) * 1000)::numeric(20, 0));
+
+alter table public.bets
+add column if not exists placed_at date not null default current_date;
+
+alter table public.bets
+add column if not exists sportsbook text not null default '';
 
 create table if not exists public.bet_legs (
   id uuid primary key default gen_random_uuid(),
@@ -26,6 +34,7 @@ create table if not exists public.bet_legs (
 
 create index if not exists bets_user_status_idx on public.bets(user_id, status, category);
 create index if not exists bets_user_order_idx on public.bets(user_id, status, category, display_order);
+create index if not exists bets_user_placed_at_idx on public.bets(user_id, placed_at desc);
 create index if not exists bet_legs_bet_position_idx on public.bet_legs(bet_id, position);
 
 create or replace function public.set_updated_at()

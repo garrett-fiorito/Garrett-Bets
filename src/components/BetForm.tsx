@@ -107,7 +107,7 @@ export default function BetForm({ draft, onCancel, onSave }: Props) {
           </button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <label>
             <span className="label">Category</span>
             <select
@@ -146,6 +146,26 @@ export default function BetForm({ draft, onCancel, onSave }: Props) {
               type="number"
               value={form.stake}
               onChange={(event) => setForm({ ...form, stake: event.target.value })}
+            />
+          </label>
+
+          <label>
+            <span className="label">Placed</span>
+            <input
+              className="field mt-1"
+              type="date"
+              value={form.placed_at}
+              onChange={(event) => setForm({ ...form, placed_at: event.target.value })}
+            />
+          </label>
+
+          <label>
+            <span className="label">Sportsbook</span>
+            <input
+              className="field mt-1"
+              placeholder="DraftKings"
+              value={form.sportsbook}
+              onChange={(event) => setForm({ ...form, sportsbook: event.target.value })}
             />
           </label>
         </div>

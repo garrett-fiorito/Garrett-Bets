@@ -14,12 +14,16 @@ type Props = {
   supabase: SupabaseClient<Database>;
 };
 
-const blankDraft: BetDraft = {
-  category: 'active',
-  status: 'pending',
-  stake: '',
-  legs: [{ description: '', odds: '' }],
-};
+function createBlankDraft(): BetDraft {
+  return {
+    category: 'active',
+    status: 'pending',
+    stake: '',
+    placed_at: today(),
+    sportsbook: '',
+    legs: [{ description: '', odds: '' }],
+  };
+}
 
 export default function Dashboard({ session, supabase }: Props) {
   const [bets, setBets] = useState<Bet[]>([]);
@@ -88,6 +92,15 @@ export default function Dashboard({ session, supabase }: Props) {
     [bets],
   );
 
+  const allTimeRecord = useMemo(() => {
+    const settledBets = bets.filter((bet) => bet.status !== 'pending');
+    const wins = settledBets.filter((bet) => bet.status === 'won').length;
+    const losses = settledBets.filter((bet) => bet.status === 'lost').length;
+    const pushes = settledBets.filter((bet) => bet.status === 'push' || bet.status === 'void').length;
+
+    return `${wins}-${losses}-${pushes}`;
+  }, [bets]);
+
   async function handleSave(nextDraft: BetDraft) {
     await saveBet(supabase, session.user.id, nextDraft);
     setDraft(null);
@@ -137,6 +150,8 @@ export default function Dashboard({ session, supabase }: Props) {
       category: bet.category,
       status: bet.status,
       stake: String(bet.stake),
+      placed_at: bet.placed_at || today(),
+      sportsbook: bet.sportsbook || '',
       legs: bet.legs.map((leg) => ({
         id: leg.id,
         description: leg.description,
@@ -166,7 +181,7 @@ export default function Dashboard({ session, supabase }: Props) {
               <RefreshCw size={17} />
               Refresh
             </button>
-            <button className="primary-button" type="button" onClick={() => setDraft(blankDraft)}>
+            <button className="primary-button" type="button" onClick={() => setDraft(createBlankDraft())}>
               <Plus size={18} />
               New bet
             </button>
@@ -182,10 +197,10 @@ export default function Dashboard({ session, supabase }: Props) {
         </header>
 
         <section className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Open risk" value={formatCurrency(pendingExposure)} />
-          <Stat label="Potential profit" value={formatCurrency(pendingPayout)} tone="lime" />
-          <Stat label="All time W/L" value={formatCurrency(allTimeNet)} tone={allTimeNet >= 0 ? 'lime' : 'pink'} />
-          <Stat label="Total bets" value={String(bets.length)} tone="cyan" />
+          <Stat label="Current Risk" value={formatCurrency(pendingExposure)} />
+          <Stat label="Profit" value={formatCurrency(pendingPayout)} tone="lime" />
+          <Stat label="All Time Win / Loss" value={formatCurrency(allTimeNet)} tone={allTimeNet >= 0 ? 'lime' : 'pink'} />
+          <Stat label="Record" value={allTimeRecord} tone="cyan" />
         </section>
 
         <div className="mb-5 flex rounded-md border border-line bg-panel p-1">
@@ -244,6 +259,10 @@ export default function Dashboard({ session, supabase }: Props) {
       ) : null}
     </main>
   );
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function Stat({ label, value, tone = 'pink' }: { label: string; value: string; tone?: 'pink' | 'lime' | 'cyan' }) {

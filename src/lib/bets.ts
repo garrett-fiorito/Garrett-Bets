@@ -27,6 +27,8 @@ export async function fetchBets(client: Client, userId: string): Promise<Bet[]> 
     ...bet,
     stake: Number(bet.stake),
     display_order: Number(bet.display_order),
+    placed_at: bet.placed_at,
+    sportsbook: bet.sportsbook ?? '',
     legs: (legRows ?? [])
       .filter((leg) => leg.bet_id === bet.id)
       .map((leg) => ({ ...leg, odds: Number(leg.odds) })),
@@ -37,6 +39,8 @@ export async function saveBet(client: Client, userId: string, draft: BetDraft): 
   const stake = Number(draft.stake);
   const status = draft.status as BetStatus;
   const category = draft.category as BetCategory;
+  const placedAt = draft.placed_at || new Date().toISOString().slice(0, 10);
+  const sportsbook = draft.sportsbook.trim();
   const settledAt = status === 'pending' ? null : new Date().toISOString();
   const legs = draft.legs.map((leg, position) => ({
     description: leg.description.trim(),
@@ -47,7 +51,7 @@ export async function saveBet(client: Client, userId: string, draft: BetDraft): 
   if (draft.id) {
     const { error } = await client
       .from('bets')
-      .update({ category, status, stake, settled_at: settledAt })
+      .update({ category, status, stake, placed_at: placedAt, sportsbook, settled_at: settledAt })
       .eq('id', draft.id);
 
     if (error) throw error;
@@ -65,7 +69,16 @@ export async function saveBet(client: Client, userId: string, draft: BetDraft): 
 
   const { data, error } = await client
     .from('bets')
-    .insert({ user_id: userId, category, status, stake, display_order: Date.now(), settled_at: settledAt })
+    .insert({
+      user_id: userId,
+      category,
+      status,
+      stake,
+      display_order: Date.now(),
+      placed_at: placedAt,
+      sportsbook,
+      settled_at: settledAt,
+    })
     .select('id')
     .single();
 
