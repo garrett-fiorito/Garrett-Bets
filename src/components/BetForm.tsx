@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import { Loader2, Minus, Plus, Save, Trash2, X } from 'lucide-react';
 import { calculateBet, formatAmericanOdds, formatCurrency } from '../lib/odds';
 import type { BetDraft, BetStatus } from '../types';
 
@@ -31,6 +31,22 @@ export default function BetForm({ draft, onCancel, onSave }: Props) {
       legs: current.legs.map((leg, legIndex) =>
         legIndex === index ? { ...leg, [field]: value } : leg,
       ),
+    }));
+  }
+
+  function toggleLegOddsSign(index: number) {
+    setForm((current) => ({
+      ...current,
+      legs: current.legs.map((leg, legIndex) => {
+        if (legIndex !== index) return leg;
+
+        const odds = leg.odds.trim();
+        const nextOdds = odds.startsWith('-')
+          ? odds.slice(1)
+          : `-${odds.startsWith('+') ? odds.slice(1) : odds}`;
+
+        return { ...leg, odds: nextOdds };
+      }),
     }));
   }
 
@@ -136,7 +152,7 @@ export default function BetForm({ draft, onCancel, onSave }: Props) {
 
         <div className="mt-5 space-y-3">
           {form.legs.map((leg, index) => (
-            <div key={`${leg.id ?? 'new'}-${index}`} className="grid gap-3 rounded-md border border-line bg-ink/50 p-3 sm:grid-cols-[1fr_8rem_2.5rem]">
+            <div key={`${leg.id ?? 'new'}-${index}`} className="grid gap-3 rounded-md border border-line bg-ink/50 p-3 sm:grid-cols-[1fr_11rem_2.5rem]">
               <label>
                 <span className="label">{index === 0 ? 'Bet' : `Leg ${index + 1}`}</span>
                 <input
@@ -147,16 +163,28 @@ export default function BetForm({ draft, onCancel, onSave }: Props) {
                 />
               </label>
 
-              <label>
+              <div>
                 <span className="label">Odds</span>
-                <input
-                  className="field mt-1"
-                  inputMode="numeric"
-                  placeholder="-110"
-                  value={leg.odds}
-                  onChange={(event) => updateLeg(index, 'odds', event.target.value)}
-                />
-              </label>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    className="field min-w-0"
+                    inputMode="decimal"
+                    pattern="[+-]?[0-9]*"
+                    placeholder="-110"
+                    type="text"
+                    value={leg.odds}
+                    onChange={(event) => updateLeg(index, 'odds', event.target.value)}
+                  />
+                  <button
+                    className="icon-button shrink-0"
+                    type="button"
+                    title={leg.odds.trim().startsWith('-') ? 'Make positive odds' : 'Make negative odds'}
+                    onClick={() => toggleLegOddsSign(index)}
+                  >
+                    {leg.odds.trim().startsWith('-') ? <Plus size={17} /> : <Minus size={17} />}
+                  </button>
+                </div>
+              </div>
 
               <div className="flex items-end">
                 <button

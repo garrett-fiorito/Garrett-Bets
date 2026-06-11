@@ -29,8 +29,8 @@ export default function BetCard({
 
   return (
     <article className="rounded-md border border-line bg-panel/90 p-4 shadow-neon">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <div className="mb-2 flex flex-wrap gap-2">
             <Badge>{bet.legs.length > 1 ? `${bet.legs.length}-leg parlay` : 'Single'}</Badge>
             <Badge tone={bet.status === 'pending' ? 'cyan' : 'pink'}>{bet.status}</Badge>
@@ -39,7 +39,7 @@ export default function BetCard({
             {bet.legs.length === 1 ? bet.legs[0]?.description : bet.legs.map((leg) => leg.description).join(' + ')}
           </h2>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
           <button className="icon-button" type="button" title="Move up" disabled={!canMoveUp} onClick={onMoveUp}>
             <ArrowUp size={17} />
           </button>
@@ -57,9 +57,9 @@ export default function BetCard({
 
       <div className="mb-4 space-y-2">
         {bet.legs.map((leg) => (
-          <div key={leg.id} className="flex items-center justify-between gap-3 rounded-md bg-ink/70 px-3 py-2">
+          <div key={leg.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md bg-ink/70 px-3 py-2">
             <span className="min-w-0 truncate text-sm text-slate-200">{leg.description}</span>
-            <span className="shrink-0 font-mono text-sm font-bold text-limefire">{formatAmericanOdds(leg.odds)}</span>
+            <span className="max-w-24 truncate font-mono text-sm font-bold text-limefire sm:max-w-none">{formatAmericanOdds(leg.odds)}</span>
           </div>
         ))}
       </div>
@@ -90,7 +90,7 @@ function Badge({ children, tone = 'lime' }: { children: string; tone?: 'lime' | 
 
 function Metric({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="rounded-md border border-line bg-ink/50 p-3">
+    <div className="min-w-0 rounded-md border border-line bg-ink/50 p-3">
       <dt className="label">{label}</dt>
       <dd className={`mt-1 truncate text-base font-black ${highlight ? 'text-glow' : 'text-white'}`}>{value}</dd>
     </div>
