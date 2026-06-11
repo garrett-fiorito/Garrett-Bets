@@ -4,7 +4,7 @@ import { LogOut, Plus, RefreshCw, Trophy } from 'lucide-react';
 import BetCard from './BetCard';
 import BetForm from './BetForm';
 import { deleteBet, fetchBets, saveBet, updateBetOrder } from '../lib/bets';
-import { calculateBet, formatCurrency } from '../lib/odds';
+import { calculateBet, formatCurrency, settledAmounts } from '../lib/odds';
 import type { Bet, BetDraft, Database } from '../types';
 
 type View = 'active' | 'future' | 'past';
@@ -73,6 +73,18 @@ export default function Dashboard({ session, supabase }: Props) {
       bets
         .filter((bet) => bet.status === 'pending')
         .reduce((total, bet) => total + calculateBet(bet.stake, bet.legs.map((leg) => leg.odds)).profit, 0),
+    [bets],
+  );
+
+  const allTimeNet = useMemo(
+    () =>
+      bets
+        .filter((bet) => bet.status !== 'pending')
+        .reduce(
+          (total, bet) =>
+            total + settledAmounts(bet.status, bet.stake, bet.legs.map((leg) => leg.odds)).profit,
+          0,
+        ),
     [bets],
   );
 
@@ -169,9 +181,10 @@ export default function Dashboard({ session, supabase }: Props) {
           </div>
         </header>
 
-        <section className="mb-5 grid gap-3 sm:grid-cols-3">
+        <section className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Open risk" value={formatCurrency(pendingExposure)} />
           <Stat label="Potential profit" value={formatCurrency(pendingPayout)} tone="lime" />
+          <Stat label="All time W/L" value={formatCurrency(allTimeNet)} tone={allTimeNet >= 0 ? 'lime' : 'pink'} />
           <Stat label="Total bets" value={String(bets.length)} tone="cyan" />
         </section>
 
