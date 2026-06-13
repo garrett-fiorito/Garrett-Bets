@@ -4,18 +4,20 @@ import type { Bet } from '../types';
 
 type Props = {
   bet: Bet;
-  canMoveDown: boolean;
-  canMoveUp: boolean;
-  onEdit: (bet: Bet) => void;
-  onDelete: (bet: Bet) => void;
-  onMoveDown: () => void;
-  onMoveUp: () => void;
+  canMoveDown?: boolean;
+  canMoveUp?: boolean;
+  readOnly?: boolean;
+  onEdit?: (bet: Bet) => void;
+  onDelete?: (bet: Bet) => void;
+  onMoveDown?: () => void;
+  onMoveUp?: () => void;
 };
 
 export default function BetCard({
   bet,
   canMoveDown,
   canMoveUp,
+  readOnly,
   onEdit,
   onDelete,
   onMoveDown,
@@ -47,24 +49,26 @@ export default function BetCard({
             ) : null}
             <span className="inline-flex items-center gap-1">
               <CalendarDays size={13} />
-              {formatPlacedDate(bet.placed_at)}
+              Placed {formatPlacedDate(bet.placed_at)}
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
-          <button className="icon-button" type="button" title="Move up" disabled={!canMoveUp} onClick={onMoveUp}>
-            <ArrowUp size={17} />
-          </button>
-          <button className="icon-button" type="button" title="Move down" disabled={!canMoveDown} onClick={onMoveDown}>
-            <ArrowDown size={17} />
-          </button>
-          <button className="icon-button" type="button" title="Edit" onClick={() => onEdit(bet)}>
-            <Pencil size={17} />
-          </button>
-          <button className="icon-button hover:border-hot hover:text-hot" type="button" title="Delete" onClick={() => onDelete(bet)}>
-            <Trash2 size={17} />
-          </button>
-        </div>
+        {!readOnly ? (
+          <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
+            <button className="icon-button" type="button" title="Move up" disabled={!canMoveUp} onClick={onMoveUp}>
+              <ArrowUp size={17} />
+            </button>
+            <button className="icon-button" type="button" title="Move down" disabled={!canMoveDown} onClick={onMoveDown}>
+              <ArrowDown size={17} />
+            </button>
+            <button className="icon-button" type="button" title="Edit" onClick={() => onEdit?.(bet)}>
+              <Pencil size={17} />
+            </button>
+            <button className="icon-button hover:border-hot hover:text-hot" type="button" title="Delete" onClick={() => onDelete?.(bet)}>
+              <Trash2 size={17} />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-4 space-y-2">

@@ -3,11 +3,12 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { LogOut, Plus, RefreshCw, Trophy } from 'lucide-react';
 import BetCard from './BetCard';
 import BetForm from './BetForm';
+import FriendsPanel from './FriendsPanel';
 import { deleteBet, fetchBets, saveBet, updateBetOrder } from '../lib/bets';
 import { calculateBet, formatCurrency, settledAmounts } from '../lib/odds';
 import type { Bet, BetDraft, Database } from '../types';
 
-type View = 'active' | 'future' | 'past';
+type View = 'active' | 'future' | 'past' | 'friends';
 
 type Props = {
   session: Session;
@@ -56,6 +57,12 @@ export default function Dashboard({ session, supabase }: Props) {
         : bets.filter((bet) => bet.status === 'pending' && bet.category === view);
 
     return [...filtered].sort((first, second) => {
+      if (view === 'past') {
+        const firstTime = new Date(first.settled_at ?? first.updated_at).getTime();
+        const secondTime = new Date(second.settled_at ?? second.updated_at).getTime();
+        return secondTime - firstTime;
+      }
+
       if (first.display_order !== second.display_order) {
         return first.display_order - second.display_order;
       }
@@ -204,7 +211,7 @@ export default function Dashboard({ session, supabase }: Props) {
         </section>
 
         <div className="mb-5 flex rounded-md border border-line bg-panel p-1">
-          {(['active', 'future', 'past'] as View[]).map((nextView) => (
+          {(['active', 'future', 'past', 'friends'] as View[]).map((nextView) => (
             <button
               key={nextView}
               className={`h-10 flex-1 rounded px-3 text-sm font-bold capitalize transition ${
@@ -224,7 +231,9 @@ export default function Dashboard({ session, supabase }: Props) {
           </div>
         ) : null}
 
-        {loading ? (
+        {view === 'friends' ? (
+          <FriendsPanel session={session} supabase={supabase} />
+        ) : loading ? (
           <div className="rounded-md border border-line bg-panel/80 p-8 text-center text-slate-400">
             Loading
           </div>

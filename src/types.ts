@@ -1,5 +1,6 @@
 export type BetCategory = 'active' | 'future';
 export type BetStatus = 'pending' | 'won' | 'lost' | 'push' | 'void';
+export type FriendshipStatus = 'pending' | 'accepted';
 
 export type BetLeg = {
   id: string;
@@ -37,6 +38,27 @@ export type BetDraft = {
     description: string;
     odds: string;
   }>;
+};
+
+export type Profile = {
+  user_id: string;
+  display_name: string;
+  friend_code: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Friendship = {
+  id: string;
+  requester_id: string;
+  recipient_id: string;
+  status: FriendshipStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FriendConnection = Friendship & {
+  friend: Profile;
 };
 
 export type Database = {
@@ -91,6 +113,32 @@ export type Database = {
           description?: string;
           odds?: number;
           position?: number;
+        };
+        Relationships: [];
+      };
+      profiles: {
+        Row: Profile;
+        Insert: {
+          user_id: string;
+          display_name?: string;
+          friend_code?: string;
+        };
+        Update: {
+          display_name?: string;
+          friend_code?: string;
+        };
+        Relationships: [];
+      };
+      friendships: {
+        Row: Friendship;
+        Insert: {
+          id?: string;
+          requester_id: string;
+          recipient_id: string;
+          status?: FriendshipStatus;
+        };
+        Update: {
+          status?: FriendshipStatus;
         };
         Relationships: [];
       };
