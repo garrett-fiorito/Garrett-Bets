@@ -9,6 +9,7 @@ type Props = {
   readOnly?: boolean;
   onEdit?: (bet: Bet) => void;
   onDelete?: (bet: Bet) => void;
+  onToggleLeg?: (betId: string, legId: string, isComplete: boolean) => void;
   onMoveDown?: () => void;
   onMoveUp?: () => void;
 };
@@ -20,11 +21,13 @@ export default function BetCard({
   readOnly,
   onEdit,
   onDelete,
+  onToggleLeg,
   onMoveDown,
   onMoveUp,
 }: Props) {
   const odds = bet.legs.map((leg) => leg.odds);
   const projected = calculateBet(bet.stake, odds);
+  const canTrackLegs = !readOnly && bet.status === 'pending' && bet.legs.length > 1;
   const displayed = bet.status === 'pending'
     ? { profit: projected.profit, totalReturn: projected.totalReturn }
     : settledAmounts(bet.status, bet.stake, odds);
@@ -74,7 +77,20 @@ export default function BetCard({
       <div className="mb-4 space-y-2">
         {bet.legs.map((leg) => (
           <div key={leg.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md bg-ink/70 px-3 py-2">
-            <span className="min-w-0 truncate text-sm text-slate-200">{leg.description}</span>
+            <div className="flex min-w-0 items-center gap-2">
+              {canTrackLegs ? (
+                <input
+                  checked={leg.is_complete}
+                  className="h-4 w-4 shrink-0 accent-limefire"
+                  onChange={(event) => onToggleLeg?.(bet.id, leg.id, event.target.checked)}
+                  title="Mark leg complete"
+                  type="checkbox"
+                />
+              ) : null}
+              <span className={`min-w-0 truncate text-sm ${leg.is_complete ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+                {leg.description}
+              </span>
+            </div>
             <span className="max-w-24 truncate font-mono text-sm font-bold text-limefire sm:max-w-none">{formatAmericanOdds(leg.odds)}</span>
           </div>
         ))}
@@ -83,8 +99,8 @@ export default function BetCard({
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <Metric label="Risked" value={formatCurrency(bet.stake)} />
         <Metric label="Odds" value={formatAmericanOdds(projected.americanOdds)} />
-        <Metric label={bet.status === 'pending' ? 'Profit' : 'Net'} value={formatCurrency(displayed.profit)} highlight={displayed.profit >= 0} />
-        <Metric label="Returned" value={formatCurrency(displayed.totalReturn)} highlight />
+        <Metric label={bet.status === 'pending' ? 'Winnings' : 'Net'} value={formatCurrency(displayed.profit)} highlight={displayed.profit >= 0} />
+        <Metric label={bet.status === 'pending' ? 'Return' : 'Returned'} value={formatCurrency(displayed.totalReturn)} highlight />
       </dl>
     </article>
   );

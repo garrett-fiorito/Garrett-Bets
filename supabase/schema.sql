@@ -29,8 +29,12 @@ create table if not exists public.bet_legs (
   description text not null,
   odds integer not null check (odds <= -100 or odds >= 100),
   position integer not null check (position >= 0),
+  is_complete boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+alter table public.bet_legs
+add column if not exists is_complete boolean not null default false;
 
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,

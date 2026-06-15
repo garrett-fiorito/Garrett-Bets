@@ -31,7 +31,7 @@ export async function fetchBets(client: Client, userId: string): Promise<Bet[]> 
     sportsbook: bet.sportsbook ?? '',
     legs: (legRows ?? [])
       .filter((leg) => leg.bet_id === bet.id)
-      .map((leg) => ({ ...leg, odds: Number(leg.odds) })),
+      .map((leg) => ({ ...leg, odds: Number(leg.odds), is_complete: Boolean(leg.is_complete) })),
   }));
 }
 
@@ -46,6 +46,7 @@ export async function saveBet(client: Client, userId: string, draft: BetDraft): 
     description: leg.description.trim(),
     odds: Number(leg.odds),
     position,
+    is_complete: Boolean(leg.is_complete),
   }));
 
   if (draft.id) {
@@ -108,4 +109,13 @@ export async function updateBetOrder(client: Client, orderedBets: Bet[]): Promis
         }),
     ),
   );
+}
+
+export async function updateBetLegComplete(client: Client, legId: string, isComplete: boolean): Promise<void> {
+  const { error } = await client
+    .from('bet_legs')
+    .update({ is_complete: isComplete })
+    .eq('id', legId);
+
+  if (error) throw error;
 }

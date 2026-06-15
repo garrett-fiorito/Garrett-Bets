@@ -8,6 +8,7 @@ export type BetLeg = {
   description: string;
   odds: number;
   position: number;
+  is_complete: boolean;
   created_at: string;
 };
 
@@ -37,6 +38,7 @@ export type BetDraft = {
     id?: string;
     description: string;
     odds: string;
+    is_complete?: boolean;
   }>;
 };
 
@@ -108,11 +110,13 @@ export type Database = {
           description: string;
           odds: number;
           position: number;
+          is_complete?: boolean;
         };
         Update: {
           description?: string;
           odds?: number;
           position?: number;
+          is_complete?: boolean;
         };
         Relationships: [];
       };

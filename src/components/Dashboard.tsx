@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import { LogOut, Plus, RefreshCw, Trophy } from 'lucide-react';
+import { ListPlus, LogOut, Plus, RefreshCw, Trophy } from 'lucide-react';
 import BetCard from './BetCard';
 import BetForm from './BetForm';
 import FriendsPanel from './FriendsPanel';
-import { deleteBet, fetchBets, saveBet, updateBetOrder } from '../lib/bets';
+import QuickAddForm from './QuickAddForm';
+import { deleteBet, fetchBets, saveBet, updateBetLegComplete, updateBetOrder } from '../lib/bets';
 import { calculateBet, formatCurrency, settledAmounts } from '../lib/odds';
 import type { Bet, BetDraft, Database } from '../types';
 
-type View = 'active' | 'future' | 'past' | 'friends';
+type View = 'all' | 'active' | 'future' | 'singles' | 'parlays' | 'longshots' | 'past' | 'friends';
 
 type Props = {
   session: Session;
@@ -30,6 +31,7 @@ export default function Dashboard({ session, supabase }: Props) {
   const [bets, setBets] = useState<Bet[]>([]);
   const [view, setView] = useState<View>('active');
   const [draft, setDraft] = useState<BetDraft | null>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -51,10 +53,7 @@ export default function Dashboard({ session, supabase }: Props) {
   }, [loadBets]);
 
   const visibleBets = useMemo(() => {
-    const filtered =
-      view === 'past'
-        ? bets.filter((bet) => bet.status !== 'pending')
-        : bets.filter((bet) => bet.status === 'pending' && bet.category === view);
+    const filtered = filterBetsForView(bets, view);
 
     return [...filtered].sort((first, second) => {
       if (view === 'past') {
@@ -71,20 +70,34 @@ export default function Dashboard({ session, supabase }: Props) {
     });
   }, [bets, view]);
 
-  const pendingExposure = useMemo(
+  const statBets = useMemo(
+    () => filterBetsForView(bets, view).filter((bet) => bet.status === 'pending'),
+    [bets, view],
+  );
+
+  const sectionCounts = useMemo(
     () =>
-      bets
-        .filter((bet) => bet.status === 'pending')
-        .reduce((total, bet) => total + bet.stake, 0),
+      ({
+        all: filterBetsForView(bets, 'all').length,
+        active: filterBetsForView(bets, 'active').length,
+        future: filterBetsForView(bets, 'future').length,
+        singles: filterBetsForView(bets, 'singles').length,
+        parlays: filterBetsForView(bets, 'parlays').length,
+        longshots: filterBetsForView(bets, 'longshots').length,
+        past: filterBetsForView(bets, 'past').length,
+      }) as Record<Exclude<View, 'friends'>, number>,
     [bets],
+  );
+
+  const pendingExposure = useMemo(
+    () => statBets.reduce((total, bet) => total + bet.stake, 0),
+    [statBets],
   );
 
   const pendingPayout = useMemo(
     () =>
-      bets
-        .filter((bet) => bet.status === 'pending')
-        .reduce((total, bet) => total + calculateBet(bet.stake, bet.legs.map((leg) => leg.odds)).profit, 0),
-    [bets],
+      statBets.reduce((total, bet) => total + calculateBet(bet.stake, bet.legs.map((leg) => leg.odds)).profit, 0),
+    [statBets],
   );
 
   const allTimeNet = useMemo(
@@ -111,6 +124,15 @@ export default function Dashboard({ session, supabase }: Props) {
   async function handleSave(nextDraft: BetDraft) {
     await saveBet(supabase, session.user.id, nextDraft);
     setDraft(null);
+    await loadBets();
+  }
+
+  async function handleQuickSave(drafts: BetDraft[]) {
+    for (const nextDraft of drafts) {
+      await saveBet(supabase, session.user.id, nextDraft);
+    }
+
+    setQuickAddOpen(false);
     await loadBets();
   }
 
@@ -151,6 +173,28 @@ export default function Dashboard({ session, supabase }: Props) {
     }
   }
 
+  async function handleLegToggle(betId: string, legId: string, isComplete: boolean) {
+    setBets((currentBets) =>
+      currentBets.map((bet) =>
+        bet.id === betId
+          ? {
+              ...bet,
+              legs: bet.legs.map((leg) =>
+                leg.id === legId ? { ...leg, is_complete: isComplete } : leg,
+              ),
+            }
+          : bet,
+      ),
+    );
+
+    try {
+      await updateBetLegComplete(supabase, legId, isComplete);
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : 'Could not update leg.');
+      await loadBets();
+    }
+  }
+
   function editBet(bet: Bet) {
     setDraft({
       id: bet.id,
@@ -163,6 +207,7 @@ export default function Dashboard({ session, supabase }: Props) {
         id: leg.id,
         description: leg.description,
         odds: leg.odds > 0 ? `+${leg.odds}` : String(leg.odds),
+        is_complete: leg.is_complete,
       })),
     });
   }
@@ -192,6 +237,10 @@ export default function Dashboard({ session, supabase }: Props) {
               <Plus size={18} />
               New bet
             </button>
+            <button className="secondary-button" type="button" onClick={() => setQuickAddOpen(true)}>
+              <ListPlus size={18} />
+              Quick add
+            </button>
             <button
               className="icon-button"
               type="button"
@@ -210,17 +259,17 @@ export default function Dashboard({ session, supabase }: Props) {
           <Stat label="Record" value={allTimeRecord} tone="cyan" />
         </section>
 
-        <div className="mb-5 flex rounded-md border border-line bg-panel p-1">
-          {(['active', 'future', 'past', 'friends'] as View[]).map((nextView) => (
+        <div className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1">
+          {(['all', 'active', 'future', 'singles', 'parlays', 'longshots', 'past', 'friends'] as View[]).map((nextView) => (
             <button
               key={nextView}
-              className={`h-10 flex-1 rounded px-3 text-sm font-bold capitalize transition ${
+              className={`h-10 min-w-[6.25rem] flex-1 rounded px-3 text-sm font-bold capitalize transition ${
                 view === nextView ? 'bg-glow text-ink' : 'text-slate-300 hover:bg-white/5'
               }`}
               type="button"
               onClick={() => setView(nextView)}
             >
-              {nextView === 'future' ? 'Futures' : nextView}
+              {formatSectionLabel(nextView, sectionCounts)}
             </button>
           ))}
         </div>
@@ -243,10 +292,11 @@ export default function Dashboard({ session, supabase }: Props) {
               <BetCard
                 key={bet.id}
                 bet={bet}
-                canMoveDown={index < visibleBets.length - 1}
-                canMoveUp={index > 0}
+                canMoveDown={view !== 'past' && index < visibleBets.length - 1}
+                canMoveUp={view !== 'past' && index > 0}
                 onDelete={handleDelete}
                 onEdit={editBet}
+                onToggleLeg={handleLegToggle}
                 onMoveDown={() => moveBet(bet.id, 1)}
                 onMoveUp={() => moveBet(bet.id, -1)}
               />
@@ -266,8 +316,52 @@ export default function Dashboard({ session, supabase }: Props) {
           onSave={handleSave}
         />
       ) : null}
+
+      {quickAddOpen ? (
+        <QuickAddForm
+          onCancel={() => setQuickAddOpen(false)}
+          onSave={handleQuickSave}
+        />
+      ) : null}
     </main>
   );
+}
+
+function filterBetsForView(bets: Bet[], view: View): Bet[] {
+  if (view === 'past') return bets.filter((bet) => bet.status !== 'pending');
+  if (view === 'friends') return [];
+
+  const pendingBets = bets.filter((bet) => bet.status === 'pending');
+
+  if (view === 'all') return pendingBets;
+  if (view === 'active') return pendingBets.filter((bet) => bet.category === 'active');
+  if (view === 'future') return pendingBets.filter((bet) => bet.category === 'future');
+  if (view === 'singles') return pendingBets.filter((bet) => bet.legs.length === 1);
+  if (view === 'parlays') return pendingBets.filter((bet) => bet.legs.length > 1);
+
+  return pendingBets.filter((bet) => {
+    try {
+      return calculateBet(bet.stake, bet.legs.map((leg) => leg.odds)).americanOdds >= 500;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function formatSectionLabel(view: View, counts: Record<Exclude<View, 'friends'>, number>) {
+  if (view === 'friends') return 'Friends';
+
+  const label = {
+    all: 'All Bets',
+    active: 'Active',
+    future: 'Futures',
+    singles: 'Singles',
+    parlays: 'Parlays',
+    longshots: 'Longshots',
+    past: 'Past',
+  }[view];
+
+  return `${label} (${counts[view]})`;
 }
 
 function today() {
