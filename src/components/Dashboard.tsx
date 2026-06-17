@@ -222,7 +222,7 @@ export default function Dashboard({ session, supabase }: Props) {
                 <Trophy size={23} />
               </div>
               <div>
-                <h1 className="text-2xl font-black sm:text-3xl">Garrett's Bet Tracker</h1>
+                <h1 className="text-2xl font-black sm:text-3xl">Bet Tracker</h1>
                 <p className="text-sm text-slate-400">{session.user.email}</p>
               </div>
             </div>
