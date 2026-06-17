@@ -3,7 +3,7 @@ create extension if not exists "pgcrypto";
 create table if not exists public.bets (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  category text not null check (category in ('active', 'future')),
+  category text not null check (category in ('active', 'future', 'planned')),
   status text not null default 'pending' check (status in ('pending', 'won', 'lost', 'push', 'void')),
   stake numeric(12, 2) not null check (stake >= 0),
   display_order numeric(20, 0) not null default ((extract(epoch from now()) * 1000)::numeric(20, 0)),
@@ -22,6 +22,12 @@ add column if not exists placed_at date not null default current_date;
 
 alter table public.bets
 add column if not exists sportsbook text not null default '';
+
+alter table public.bets
+drop constraint if exists bets_category_check;
+
+alter table public.bets
+add constraint bets_category_check check (category in ('active', 'future', 'planned'));
 
 create table if not exists public.bet_legs (
   id uuid primary key default gen_random_uuid(),
@@ -120,11 +126,11 @@ on public.bets for select
 using (auth.uid() = user_id);
 
 drop policy if exists "Friends can read pending bets" on public.bets;
-create policy "Friends can read pending bets"
+drop policy if exists "Friends can read accepted friend bets" on public.bets;
+create policy "Friends can read accepted friend bets"
 on public.bets for select
 using (
-  status = 'pending'
-  and exists (
+  exists (
     select 1 from public.friendships
     where friendships.status = 'accepted'
     and (
@@ -162,13 +168,13 @@ using (
 );
 
 drop policy if exists "Friends can read pending bet legs" on public.bet_legs;
-create policy "Friends can read pending bet legs"
+drop policy if exists "Friends can read accepted friend bet legs" on public.bet_legs;
+create policy "Friends can read accepted friend bet legs"
 on public.bet_legs for select
 using (
   exists (
     select 1 from public.bets
     where bets.id = bet_legs.bet_id
-    and bets.status = 'pending'
     and exists (
       select 1 from public.friendships
       where friendships.status = 'accepted'

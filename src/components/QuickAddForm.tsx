@@ -170,6 +170,7 @@ export default function QuickAddForm({ onCancel, onSave }: Props) {
                 >
                   <option value="active">Active</option>
                   <option value="future">Future</option>
+                  <option value="planned">Bets to Place</option>
                 </select>
               </label>
 

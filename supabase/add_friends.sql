@@ -105,11 +105,11 @@ on public.friendships for delete
 using (auth.uid() = requester_id or auth.uid() = recipient_id);
 
 drop policy if exists "Friends can read pending bets" on public.bets;
-create policy "Friends can read pending bets"
+drop policy if exists "Friends can read accepted friend bets" on public.bets;
+create policy "Friends can read accepted friend bets"
 on public.bets for select
 using (
-  status = 'pending'
-  and exists (
+  exists (
     select 1 from public.friendships
     where friendships.status = 'accepted'
     and (
@@ -120,13 +120,13 @@ using (
 );
 
 drop policy if exists "Friends can read pending bet legs" on public.bet_legs;
-create policy "Friends can read pending bet legs"
+drop policy if exists "Friends can read accepted friend bet legs" on public.bet_legs;
+create policy "Friends can read accepted friend bet legs"
 on public.bet_legs for select
 using (
   exists (
     select 1 from public.bets
     where bets.id = bet_legs.bet_id
-    and bets.status = 'pending'
     and exists (
       select 1 from public.friendships
       where friendships.status = 'accepted'

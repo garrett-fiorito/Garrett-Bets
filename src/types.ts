@@ -1,4 +1,4 @@
-export type BetCategory = 'active' | 'future';
+export type BetCategory = 'active' | 'future' | 'planned';
 export type BetStatus = 'pending' | 'won' | 'lost' | 'push' | 'void';
 export type FriendshipStatus = 'pending' | 'accepted';
 

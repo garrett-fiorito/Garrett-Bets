@@ -9,7 +9,7 @@ import { deleteBet, fetchBets, saveBet, updateBetLegComplete, updateBetOrder } f
 import { calculateBet, formatCurrency, settledAmounts } from '../lib/odds';
 import type { Bet, BetDraft, Database } from '../types';
 
-type View = 'all' | 'active' | 'future' | 'singles' | 'parlays' | 'longshots' | 'past' | 'friends';
+type View = 'all' | 'active' | 'singles' | 'parlays' | 'longshots' | 'future' | 'planned' | 'past' | 'friends';
 
 type Props = {
   session: Session;
@@ -71,7 +71,10 @@ export default function Dashboard({ session, supabase }: Props) {
   }, [bets, view]);
 
   const statBets = useMemo(
-    () => filterBetsForView(bets, view).filter((bet) => bet.status === 'pending'),
+    () =>
+      view === 'planned'
+        ? []
+        : filterBetsForView(bets, view).filter((bet) => bet.status === 'pending' && bet.category !== 'planned'),
     [bets, view],
   );
 
@@ -84,6 +87,7 @@ export default function Dashboard({ session, supabase }: Props) {
         singles: filterBetsForView(bets, 'singles').length,
         parlays: filterBetsForView(bets, 'parlays').length,
         longshots: filterBetsForView(bets, 'longshots').length,
+        planned: filterBetsForView(bets, 'planned').length,
         past: filterBetsForView(bets, 'past').length,
       }) as Record<Exclude<View, 'friends'>, number>,
     [bets],
@@ -260,7 +264,7 @@ export default function Dashboard({ session, supabase }: Props) {
         </section>
 
         <div className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1">
-          {(['all', 'active', 'future', 'singles', 'parlays', 'longshots', 'past', 'friends'] as View[]).map((nextView) => (
+          {(['all', 'active', 'singles', 'parlays', 'longshots', 'future', 'planned', 'past', 'friends'] as View[]).map((nextView) => (
             <button
               key={nextView}
               className={`h-10 min-w-[6.25rem] flex-1 rounded px-3 text-sm font-bold capitalize transition ${
@@ -332,14 +336,16 @@ function filterBetsForView(bets: Bet[], view: View): Bet[] {
   if (view === 'friends') return [];
 
   const pendingBets = bets.filter((bet) => bet.status === 'pending');
+  const placedPendingBets = pendingBets.filter((bet) => bet.category !== 'planned');
 
-  if (view === 'all') return pendingBets;
-  if (view === 'active') return pendingBets.filter((bet) => bet.category === 'active');
+  if (view === 'all') return placedPendingBets;
+  if (view === 'active') return placedPendingBets.filter((bet) => bet.category === 'active');
   if (view === 'future') return pendingBets.filter((bet) => bet.category === 'future');
-  if (view === 'singles') return pendingBets.filter((bet) => bet.legs.length === 1);
-  if (view === 'parlays') return pendingBets.filter((bet) => bet.legs.length > 1);
+  if (view === 'planned') return pendingBets.filter((bet) => bet.category === 'planned');
+  if (view === 'singles') return placedPendingBets.filter((bet) => bet.legs.length === 1);
+  if (view === 'parlays') return placedPendingBets.filter((bet) => bet.legs.length > 1);
 
-  return pendingBets.filter((bet) => {
+  return placedPendingBets.filter((bet) => {
     try {
       return calculateBet(bet.stake, bet.legs.map((leg) => leg.odds)).americanOdds >= 500;
     } catch {
@@ -358,6 +364,7 @@ function formatSectionLabel(view: View, counts: Record<Exclude<View, 'friends'>,
     singles: 'Singles',
     parlays: 'Parlays',
     longshots: 'Longshots',
+    planned: 'Bets to Place',
     past: 'Past',
   }[view];
 

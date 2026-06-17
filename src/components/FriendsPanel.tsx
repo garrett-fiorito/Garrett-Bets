@@ -56,6 +56,14 @@ export default function FriendsPanel({ session, supabase }: Props) {
   const selectedFriend = acceptedFriends.find((connection) => connection.friend.user_id === selectedFriendId);
   const activeBets = friendBets.filter((bet) => bet.category === 'active' && bet.status === 'pending');
   const futureBets = friendBets.filter((bet) => bet.category === 'future' && bet.status === 'pending');
+  const friendRecord = useMemo(() => {
+    const settledBets = friendBets.filter((bet) => bet.status !== 'pending');
+    const wins = settledBets.filter((bet) => bet.status === 'won').length;
+    const losses = settledBets.filter((bet) => bet.status === 'lost').length;
+    const pushes = settledBets.filter((bet) => bet.status === 'push' || bet.status === 'void').length;
+
+    return `${wins}-${losses}-${pushes}`;
+  }, [friendBets]);
 
   const loadFriends = useCallback(async () => {
     setLoading(true);
@@ -99,7 +107,6 @@ export default function FriendsPanel({ session, supabase }: Props) {
       .then((bets) => {
         setFriendBets(
           bets
-            .filter((bet) => bet.status === 'pending')
             .sort((first, second) => first.display_order - second.display_order),
         );
       })
@@ -277,9 +284,16 @@ export default function FriendsPanel({ session, supabase }: Props) {
         </div>
 
         {selectedFriend ? (
-          <div className="grid gap-5 xl:grid-cols-2">
-            <FriendBetSection title="Active" bets={activeBets} />
-            <FriendBetSection title="Futures" bets={futureBets} />
+          <div className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <FriendStat label="Record" value={friendRecord} />
+              <FriendStat label="Active" value={String(activeBets.length)} tone="lime" />
+              <FriendStat label="Futures" value={String(futureBets.length)} tone="cyan" />
+            </div>
+            <div className="grid gap-5 xl:grid-cols-2">
+              <FriendBetSection title="Active" bets={activeBets} />
+              <FriendBetSection title="Futures" bets={futureBets} />
+            </div>
           </div>
         ) : (
           <div className="rounded-md border border-line bg-ink/50 p-8 text-center text-slate-400">
@@ -288,6 +302,21 @@ export default function FriendsPanel({ session, supabase }: Props) {
         )}
       </div>
     </section>
+  );
+}
+
+function FriendStat({ label, value, tone = 'pink' }: { label: string; value: string; tone?: 'pink' | 'lime' | 'cyan' }) {
+  const toneClass = {
+    pink: 'text-hot',
+    lime: 'text-limefire',
+    cyan: 'text-glow',
+  }[tone];
+
+  return (
+    <div className="rounded-md border border-line bg-ink/50 p-3">
+      <p className="label">{label}</p>
+      <p className={`mt-1 text-xl font-black ${toneClass}`}>{value}</p>
+    </div>
   );
 }
 
