@@ -9,7 +9,7 @@ import { deleteBet, fetchBets, saveBet, updateBetLegComplete, updateBetOrder } f
 import { calculateBet, formatCurrency, settledAmounts } from '../lib/odds';
 import type { Bet, BetDraft, Database } from '../types';
 
-type View = 'all' | 'active' | 'singles' | 'parlays' | 'longshots' | 'future' | 'planned' | 'past' | 'friends';
+type View = 'active' | 'singles' | 'parlays' | 'longshots' | 'future' | 'planned' | 'past' | 'friends';
 
 type Props = {
   session: Session;
@@ -81,7 +81,6 @@ export default function Dashboard({ session, supabase }: Props) {
   const sectionCounts = useMemo(
     () =>
       ({
-        all: filterBetsForView(bets, 'all').length,
         active: filterBetsForView(bets, 'active').length,
         future: filterBetsForView(bets, 'future').length,
         singles: filterBetsForView(bets, 'singles').length,
@@ -264,7 +263,7 @@ export default function Dashboard({ session, supabase }: Props) {
         </section>
 
         <div className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1">
-          {(['all', 'active', 'singles', 'parlays', 'longshots', 'future', 'planned', 'past', 'friends'] as View[]).map((nextView) => (
+          {(['active', 'singles', 'parlays', 'longshots', 'future', 'planned', 'past', 'friends'] as View[]).map((nextView) => (
             <button
               key={nextView}
               className={`h-10 min-w-[6.25rem] flex-1 rounded px-3 text-sm font-bold capitalize transition ${
@@ -338,7 +337,6 @@ function filterBetsForView(bets: Bet[], view: View): Bet[] {
   const pendingBets = bets.filter((bet) => bet.status === 'pending');
   const placedPendingBets = pendingBets.filter((bet) => bet.category !== 'planned');
 
-  if (view === 'all') return placedPendingBets;
   if (view === 'active') return placedPendingBets.filter((bet) => bet.category === 'active');
   if (view === 'future') return pendingBets.filter((bet) => bet.category === 'future');
   if (view === 'planned') return pendingBets.filter((bet) => bet.category === 'planned');
@@ -358,7 +356,6 @@ function formatSectionLabel(view: View, counts: Record<Exclude<View, 'friends'>,
   if (view === 'friends') return 'Friends';
 
   const label = {
-    all: 'All Bets',
     active: 'Active',
     future: 'Futures',
     singles: 'Singles',
