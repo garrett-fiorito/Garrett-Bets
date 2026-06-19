@@ -6,6 +6,7 @@ type Props = {
   bet: Bet;
   canMoveDown?: boolean;
   canMoveUp?: boolean;
+  groupName?: string;
   readOnly?: boolean;
   onEdit?: (bet: Bet) => void;
   onDelete?: (bet: Bet) => void;
@@ -18,6 +19,7 @@ export default function BetCard({
   bet,
   canMoveDown,
   canMoveUp,
+  groupName,
   readOnly,
   onEdit,
   onDelete,
@@ -39,6 +41,7 @@ export default function BetCard({
           <div className="mb-2 flex flex-wrap gap-2">
             <Badge>{bet.legs.length > 1 ? `${bet.legs.length}-leg parlay` : 'Single'}</Badge>
             <Badge tone={bet.status === 'pending' ? 'cyan' : 'pink'}>{bet.status}</Badge>
+            {groupName ? <Badge tone="pink">{groupName}</Badge> : null}
           </div>
           <h2 className="line-clamp-2 text-lg font-black">
             {bet.legs.length === 1 ? bet.legs[0]?.description : bet.legs.map((leg) => leg.description).join(' + ')}

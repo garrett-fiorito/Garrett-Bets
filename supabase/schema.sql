@@ -4,6 +4,7 @@ create table if not exists public.bets (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   category text not null check (category in ('active', 'future', 'planned')),
+  group_id uuid,
   status text not null default 'pending' check (status in ('pending', 'won', 'lost', 'push', 'void')),
   stake numeric(12, 2) not null check (stake >= 0),
   display_order numeric(20, 0) not null default ((extract(epoch from now()) * 1000)::numeric(20, 0)),
@@ -13,6 +14,35 @@ create table if not exists public.bets (
   updated_at timestamptz not null default now(),
   settled_at timestamptz
 );
+
+create table if not exists public.bet_groups (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, name)
+);
+
+create table if not exists public.section_preferences (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  section_key text not null,
+  label text not null,
+  is_visible boolean not null default true,
+  display_order integer not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, section_key),
+  check (section_key in ('active', 'singles', 'parlays', 'longshots', 'future', 'planned', 'past', 'friends'))
+);
+
+alter table public.bets
+add column if not exists group_id uuid;
+
+alter table public.bets
+drop constraint if exists bets_group_id_fkey;
+
+alter table public.bets
+add constraint bets_group_id_fkey foreign key (group_id) references public.bet_groups(id) on delete set null;
 
 alter table public.bets
 add column if not exists display_order numeric(20, 0) not null default ((extract(epoch from now()) * 1000)::numeric(20, 0));
@@ -61,6 +91,9 @@ create table if not exists public.friendships (
 );
 
 create index if not exists bets_user_status_idx on public.bets(user_id, status, category);
+create index if not exists bet_groups_user_name_idx on public.bet_groups(user_id, name);
+create index if not exists bets_user_group_idx on public.bets(user_id, group_id);
+create index if not exists section_preferences_user_order_idx on public.section_preferences(user_id, display_order);
 create index if not exists bets_user_order_idx on public.bets(user_id, status, category, display_order);
 create index if not exists bets_user_placed_at_idx on public.bets(user_id, placed_at desc);
 create index if not exists bet_legs_bet_position_idx on public.bet_legs(bet_id, position);
@@ -105,6 +138,16 @@ create trigger profiles_set_updated_at
 before update on public.profiles
 for each row execute function public.set_updated_at();
 
+drop trigger if exists bet_groups_set_updated_at on public.bet_groups;
+create trigger bet_groups_set_updated_at
+before update on public.bet_groups
+for each row execute function public.set_updated_at();
+
+drop trigger if exists section_preferences_set_updated_at on public.section_preferences;
+create trigger section_preferences_set_updated_at
+before update on public.section_preferences
+for each row execute function public.set_updated_at();
+
 drop trigger if exists friendships_set_updated_at on public.friendships;
 create trigger friendships_set_updated_at
 before update on public.friendships
@@ -116,9 +159,62 @@ before update on public.friendships
 for each row execute function public.prevent_friendship_participant_changes();
 
 alter table public.bets enable row level security;
+alter table public.bet_groups enable row level security;
+alter table public.section_preferences enable row level security;
 alter table public.bet_legs enable row level security;
 alter table public.profiles enable row level security;
 alter table public.friendships enable row level security;
+
+drop policy if exists "Users can read own bet groups" on public.bet_groups;
+create policy "Users can read own bet groups"
+on public.bet_groups for select
+using (auth.uid() = user_id);
+
+drop policy if exists "Friends can read accepted friend bet groups" on public.bet_groups;
+create policy "Friends can read accepted friend bet groups"
+on public.bet_groups for select
+using (
+  exists (
+    select 1 from public.friendships
+    where friendships.status = 'accepted'
+    and (
+      (friendships.requester_id = auth.uid() and friendships.recipient_id = bet_groups.user_id)
+      or (friendships.recipient_id = auth.uid() and friendships.requester_id = bet_groups.user_id)
+    )
+  )
+);
+
+drop policy if exists "Users can insert own bet groups" on public.bet_groups;
+create policy "Users can insert own bet groups"
+on public.bet_groups for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own bet groups" on public.bet_groups;
+create policy "Users can update own bet groups"
+on public.bet_groups for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own bet groups" on public.bet_groups;
+create policy "Users can delete own bet groups"
+on public.bet_groups for delete
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can read own section preferences" on public.section_preferences;
+create policy "Users can read own section preferences"
+on public.section_preferences for select
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own section preferences" on public.section_preferences;
+create policy "Users can insert own section preferences"
+on public.section_preferences for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own section preferences" on public.section_preferences;
+create policy "Users can update own section preferences"
+on public.section_preferences for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
 drop policy if exists "Users can read own bets" on public.bets;
 create policy "Users can read own bets"
@@ -143,13 +239,33 @@ using (
 drop policy if exists "Users can insert own bets" on public.bets;
 create policy "Users can insert own bets"
 on public.bets for insert
-with check (auth.uid() = user_id);
+with check (
+  auth.uid() = user_id
+  and (
+    group_id is null
+    or exists (
+      select 1 from public.bet_groups
+      where bet_groups.id = bets.group_id
+      and bet_groups.user_id = auth.uid()
+    )
+  )
+);
 
 drop policy if exists "Users can update own bets" on public.bets;
 create policy "Users can update own bets"
 on public.bets for update
 using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+with check (
+  auth.uid() = user_id
+  and (
+    group_id is null
+    or exists (
+      select 1 from public.bet_groups
+      where bet_groups.id = bets.group_id
+      and bet_groups.user_id = auth.uid()
+    )
+  )
+);
 
 drop policy if exists "Users can delete own bets" on public.bets;
 create policy "Users can delete own bets"

@@ -1,10 +1,11 @@
 import { FormEvent, useState } from 'react';
 import { Loader2, Minus, Plus, Save, Trash2, X } from 'lucide-react';
-import type { BetCategory, BetDraft } from '../types';
+import type { BetCategory, BetDraft, BetGroup } from '../types';
 
 type QuickAddRow = {
   id: number;
   category: BetCategory;
+  group_id: string;
   description: string;
   odds: string;
   placed_at: string;
@@ -13,13 +14,15 @@ type QuickAddRow = {
 };
 
 type Props = {
+  defaultGroupId?: string;
+  groups: BetGroup[];
   onCancel: () => void;
   onSave: (drafts: BetDraft[]) => Promise<void>;
 };
 
-export default function QuickAddForm({ onCancel, onSave }: Props) {
+export default function QuickAddForm({ defaultGroupId = '', groups, onCancel, onSave }: Props) {
   const [rows, setRows] = useState<QuickAddRow[]>(() =>
-    Array.from({ length: 3 }, (_, index) => createRow(index)),
+    Array.from({ length: 3 }, (_, index) => createRow(index, defaultGroupId)),
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -46,7 +49,7 @@ export default function QuickAddForm({ onCancel, onSave }: Props) {
   }
 
   function addRow() {
-    setRows((currentRows) => [...currentRows, createRow(Date.now())]);
+    setRows((currentRows) => [...currentRows, createRow(Date.now(), defaultGroupId)]);
   }
 
   function removeRow(id: number) {
@@ -81,6 +84,7 @@ export default function QuickAddForm({ onCancel, onSave }: Props) {
       await onSave(
         filledRows.map((row) => ({
           category: row.category,
+          group_id: row.group_id,
           status: 'pending',
           stake: row.stake,
           placed_at: row.placed_at || today(),
@@ -115,7 +119,7 @@ export default function QuickAddForm({ onCancel, onSave }: Props) {
 
         <div className="space-y-3">
           {rows.map((row) => (
-            <div key={row.id} className="grid gap-3 rounded-md border border-line bg-ink/50 p-3 lg:grid-cols-[1.4fr_10rem_7rem_8rem_8rem_9rem_2.5rem]">
+            <div key={row.id} className="grid gap-3 rounded-md border border-line bg-ink/50 p-3 lg:grid-cols-[1.4fr_10rem_7rem_8rem_9rem_8rem_9rem_2.5rem]">
               <label>
                 <span className="label">Bet</span>
                 <input
@@ -175,6 +179,22 @@ export default function QuickAddForm({ onCancel, onSave }: Props) {
               </label>
 
               <label>
+                <span className="label">Group</span>
+                <select
+                  className="field mt-1"
+                  value={row.group_id}
+                  onChange={(event) => updateRow(row.id, 'group_id', event.target.value)}
+                >
+                  <option value="">No group</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
                 <span className="label">Placed</span>
                 <input
                   className="field mt-1"
@@ -230,10 +250,11 @@ export default function QuickAddForm({ onCancel, onSave }: Props) {
   );
 }
 
-function createRow(id: number): QuickAddRow {
+function createRow(id: number, groupId = ''): QuickAddRow {
   return {
     id,
     category: 'active',
+    group_id: groupId,
     description: '',
     odds: '',
     placed_at: today(),

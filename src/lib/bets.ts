@@ -25,6 +25,7 @@ export async function fetchBets(client: Client, userId: string): Promise<Bet[]> 
 
   return betRows.map((bet) => ({
     ...bet,
+    group_id: bet.group_id ?? null,
     stake: Number(bet.stake),
     display_order: Number(bet.display_order),
     placed_at: bet.placed_at,
@@ -39,6 +40,7 @@ export async function saveBet(client: Client, userId: string, draft: BetDraft): 
   const stake = Number(draft.stake);
   const status = draft.status as BetStatus;
   const category = draft.category as BetCategory;
+  const groupId = draft.group_id || null;
   const placedAt = draft.placed_at || new Date().toISOString().slice(0, 10);
   const sportsbook = draft.sportsbook.trim();
   const settledAt = status === 'pending' ? null : new Date().toISOString();
@@ -52,7 +54,7 @@ export async function saveBet(client: Client, userId: string, draft: BetDraft): 
   if (draft.id) {
     const { error } = await client
       .from('bets')
-      .update({ category, status, stake, placed_at: placedAt, sportsbook, settled_at: settledAt })
+      .update({ category, group_id: groupId, status, stake, placed_at: placedAt, sportsbook, settled_at: settledAt })
       .eq('id', draft.id);
 
     if (error) throw error;
@@ -73,6 +75,7 @@ export async function saveBet(client: Client, userId: string, draft: BetDraft): 
     .insert({
       user_id: userId,
       category,
+      group_id: groupId,
       status,
       stake,
       display_order: Date.now(),

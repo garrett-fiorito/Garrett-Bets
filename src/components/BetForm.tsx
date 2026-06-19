@@ -1,15 +1,16 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { Loader2, Minus, Plus, Save, Trash2, X } from 'lucide-react';
 import { calculateBet, formatAmericanOdds, formatCurrency } from '../lib/odds';
-import type { BetDraft, BetStatus } from '../types';
+import type { BetDraft, BetGroup, BetStatus } from '../types';
 
 type Props = {
   draft: BetDraft;
+  groups: BetGroup[];
   onCancel: () => void;
   onSave: (draft: BetDraft) => Promise<void>;
 };
 
-export default function BetForm({ draft, onCancel, onSave }: Props) {
+export default function BetForm({ draft, groups, onCancel, onSave }: Props) {
   const [form, setForm] = useState<BetDraft>(draft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -107,7 +108,7 @@ export default function BetForm({ draft, onCancel, onSave }: Props) {
           </button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <label>
             <span className="label">Category</span>
             <select
@@ -118,6 +119,22 @@ export default function BetForm({ draft, onCancel, onSave }: Props) {
               <option value="active">Active</option>
               <option value="future">Future</option>
               <option value="planned">Bets to Place</option>
+            </select>
+          </label>
+
+          <label>
+            <span className="label">Group</span>
+            <select
+              className="field mt-1"
+              value={form.group_id}
+              onChange={(event) => setForm({ ...form, group_id: event.target.value })}
+            >
+              <option value="">No group</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
             </select>
           </label>
 

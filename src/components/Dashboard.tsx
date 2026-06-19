@@ -1,24 +1,42 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import { ListPlus, LogOut, Plus, RefreshCw, Trophy } from 'lucide-react';
+import { Check, ListPlus, LogOut, Plus, RefreshCw, Settings2, Share2, Tags, Trash2, Trophy } from 'lucide-react';
 import BetCard from './BetCard';
 import BetForm from './BetForm';
 import FriendsPanel from './FriendsPanel';
 import QuickAddForm from './QuickAddForm';
+import SectionSettings from './SectionSettings';
+import ShareSheet from './ShareSheet';
 import { deleteBet, fetchBets, saveBet, updateBetLegComplete, updateBetOrder } from '../lib/bets';
+import { createBetGroup, deleteBetGroup, fetchBetGroups, renameBetGroup } from '../lib/groups';
 import { calculateBet, formatCurrency, settledAmounts } from '../lib/odds';
-import type { Bet, BetDraft, Database } from '../types';
+import { fetchSectionPreferences, saveSectionPreferences } from '../lib/sections';
+import type { EditableSection } from '../lib/sections';
+import type { Bet, BetDraft, BetGroup, Database, SectionKey, SectionPreference } from '../types';
 
-type View = 'active' | 'singles' | 'parlays' | 'longshots' | 'future' | 'planned' | 'past' | 'friends';
+type View = SectionKey;
 
 type Props = {
   session: Session;
   supabase: SupabaseClient<Database>;
 };
 
-function createBlankDraft(): BetDraft {
+const DEFAULT_SECTIONS: EditableSection[] = [
+  { key: 'active', label: 'Active', is_visible: true, display_order: 0 },
+  { key: 'singles', label: 'Singles', is_visible: true, display_order: 1 },
+  { key: 'parlays', label: 'Parlays', is_visible: true, display_order: 2 },
+  { key: 'longshots', label: 'Longshots', is_visible: true, display_order: 3 },
+  { key: 'future', label: 'Futures', is_visible: true, display_order: 4 },
+  { key: 'planned', label: 'Bets to Place', is_visible: true, display_order: 5 },
+  { key: 'past', label: 'Past', is_visible: true, display_order: 6 },
+  { key: 'friends', label: 'Friends', is_visible: true, display_order: 7 },
+];
+
+function createBlankDraft(groupId = ''): BetDraft {
   return {
     category: 'active',
+    group_id: groupId,
     status: 'pending',
     stake: '',
     placed_at: today(),
@@ -29,9 +47,16 @@ function createBlankDraft(): BetDraft {
 
 export default function Dashboard({ session, supabase }: Props) {
   const [bets, setBets] = useState<Bet[]>([]);
+  const [groups, setGroups] = useState<BetGroup[]>([]);
+  const [sectionPreferences, setSectionPreferences] = useState<SectionPreference[]>([]);
   const [view, setView] = useState<View>('active');
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
+  const [groupNameDraft, setGroupNameDraft] = useState('');
   const [draft, setDraft] = useState<BetDraft | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [sectionSettingsOpen, setSectionSettingsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -40,7 +65,18 @@ export default function Dashboard({ session, supabase }: Props) {
     setError('');
 
     try {
-      setBets(await fetchBets(supabase, session.user.id));
+      const [nextBets, nextGroups, nextSectionPreferences] = await Promise.all([
+        fetchBets(supabase, session.user.id),
+        fetchBetGroups(supabase, session.user.id),
+        fetchSectionPreferences(supabase, session.user.id),
+      ]);
+
+      setBets(nextBets);
+      setGroups(nextGroups);
+      setSectionPreferences(nextSectionPreferences);
+      setSelectedGroupId((currentGroupId) =>
+        currentGroupId && nextGroups.some((group) => group.id === currentGroupId) ? currentGroupId : '',
+      );
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load bets.');
     } finally {
@@ -52,8 +88,23 @@ export default function Dashboard({ session, supabase }: Props) {
     loadBets();
   }, [loadBets]);
 
+  const groupedBets = useMemo(
+    () => (selectedGroupId ? bets.filter((bet) => bet.group_id === selectedGroupId) : bets),
+    [bets, selectedGroupId],
+  );
+
+  const sections = useMemo(
+    () => mergeSections(sectionPreferences),
+    [sectionPreferences],
+  );
+
+  const visibleSections = useMemo(
+    () => sections.filter((section) => section.is_visible),
+    [sections],
+  );
+
   const visibleBets = useMemo(() => {
-    const filtered = filterBetsForView(bets, view);
+    const filtered = filterBetsForView(groupedBets, view);
 
     return [...filtered].sort((first, second) => {
       if (view === 'past') {
@@ -68,28 +119,28 @@ export default function Dashboard({ session, supabase }: Props) {
 
       return new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime();
     });
-  }, [bets, view]);
+  }, [groupedBets, view]);
 
   const statBets = useMemo(
     () =>
       view === 'planned'
         ? []
-        : filterBetsForView(bets, view).filter((bet) => bet.status === 'pending' && bet.category !== 'planned'),
-    [bets, view],
+        : filterBetsForView(groupedBets, view).filter((bet) => bet.status === 'pending' && bet.category !== 'planned'),
+    [groupedBets, view],
   );
 
   const sectionCounts = useMemo(
     () =>
       ({
-        active: filterBetsForView(bets, 'active').length,
-        future: filterBetsForView(bets, 'future').length,
-        singles: filterBetsForView(bets, 'singles').length,
-        parlays: filterBetsForView(bets, 'parlays').length,
-        longshots: filterBetsForView(bets, 'longshots').length,
-        planned: filterBetsForView(bets, 'planned').length,
-        past: filterBetsForView(bets, 'past').length,
+        active: filterBetsForView(groupedBets, 'active').length,
+        future: filterBetsForView(groupedBets, 'future').length,
+        singles: filterBetsForView(groupedBets, 'singles').length,
+        parlays: filterBetsForView(groupedBets, 'parlays').length,
+        longshots: filterBetsForView(groupedBets, 'longshots').length,
+        planned: filterBetsForView(groupedBets, 'planned').length,
+        past: filterBetsForView(groupedBets, 'past').length,
       }) as Record<Exclude<View, 'friends'>, number>,
-    [bets],
+    [groupedBets],
   );
 
   const pendingExposure = useMemo(
@@ -105,24 +156,38 @@ export default function Dashboard({ session, supabase }: Props) {
 
   const allTimeNet = useMemo(
     () =>
-      bets
+      groupedBets
         .filter((bet) => bet.status !== 'pending')
         .reduce(
           (total, bet) =>
             total + settledAmounts(bet.status, bet.stake, bet.legs.map((leg) => leg.odds)).profit,
           0,
         ),
-    [bets],
+    [groupedBets],
   );
 
   const allTimeRecord = useMemo(() => {
-    const settledBets = bets.filter((bet) => bet.status !== 'pending');
+    const settledBets = groupedBets.filter((bet) => bet.status !== 'pending');
     const wins = settledBets.filter((bet) => bet.status === 'won').length;
     const losses = settledBets.filter((bet) => bet.status === 'lost').length;
     const pushes = settledBets.filter((bet) => bet.status === 'push' || bet.status === 'void').length;
 
     return `${wins}-${losses}-${pushes}`;
-  }, [bets]);
+  }, [groupedBets]);
+
+  const selectedGroup = groups.find((group) => group.id === selectedGroupId);
+  const shareTitle = getSectionLabel(view, sections);
+
+  useEffect(() => {
+    setGroupNameDraft(selectedGroup?.name ?? '');
+  }, [selectedGroup?.name]);
+
+  useEffect(() => {
+    if (!visibleSections.length) return;
+    if (!visibleSections.some((section) => section.key === view)) {
+      setView(visibleSections[0].key);
+    }
+  }, [view, visibleSections]);
 
   async function handleSave(nextDraft: BetDraft) {
     await saveBet(supabase, session.user.id, nextDraft);
@@ -137,6 +202,68 @@ export default function Dashboard({ session, supabase }: Props) {
 
     setQuickAddOpen(false);
     await loadBets();
+  }
+
+  async function handleCreateGroup(event: FormEvent) {
+    event.preventDefault();
+    setError('');
+
+    try {
+      const group = await createBetGroup(supabase, session.user.id, newGroupName);
+      setGroups((currentGroups) => [...currentGroups, group].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedGroupId(group.id);
+      setNewGroupName('');
+    } catch (groupError) {
+      setError(groupError instanceof Error ? groupError.message : 'Could not create group.');
+    }
+  }
+
+  async function handleDeleteGroup() {
+    if (!selectedGroup) return;
+
+    const confirmed = window.confirm(`Delete ${selectedGroup.name}? Bets will stay saved.`);
+    if (!confirmed) return;
+
+    try {
+      await deleteBetGroup(supabase, selectedGroup.id);
+      setGroups((currentGroups) => currentGroups.filter((group) => group.id !== selectedGroup.id));
+      setSelectedGroupId('');
+      await loadBets();
+    } catch (groupError) {
+      setError(groupError instanceof Error ? groupError.message : 'Could not delete group.');
+    }
+  }
+
+  async function handleRenameGroup(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedGroup) return;
+
+    try {
+      const renamedGroup = await renameBetGroup(supabase, selectedGroup.id, groupNameDraft);
+      setGroups((currentGroups) =>
+        currentGroups
+          .map((group) => (group.id === renamedGroup.id ? renamedGroup : group))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setGroupNameDraft(renamedGroup.name);
+    } catch (groupError) {
+      setError(groupError instanceof Error ? groupError.message : 'Could not rename group.');
+    }
+  }
+
+  async function handleSaveSections(nextSections: EditableSection[]) {
+    await saveSectionPreferences(supabase, session.user.id, nextSections);
+    setSectionPreferences(
+      nextSections.map((section) => ({
+        user_id: session.user.id,
+        section_key: section.key,
+        label: section.label,
+        is_visible: section.is_visible,
+        display_order: section.display_order,
+        updated_at: new Date().toISOString(),
+      })),
+    );
+    setSectionSettingsOpen(false);
   }
 
   async function handleDelete(bet: Bet) {
@@ -202,6 +329,7 @@ export default function Dashboard({ session, supabase }: Props) {
     setDraft({
       id: bet.id,
       category: bet.category,
+      group_id: bet.group_id ?? '',
       status: bet.status,
       stake: String(bet.stake),
       placed_at: bet.placed_at || today(),
@@ -236,13 +364,17 @@ export default function Dashboard({ session, supabase }: Props) {
               <RefreshCw size={17} />
               Refresh
             </button>
-            <button className="primary-button" type="button" onClick={() => setDraft(createBlankDraft())}>
+            <button className="primary-button" type="button" onClick={() => setDraft(createBlankDraft(selectedGroupId))}>
               <Plus size={18} />
               New bet
             </button>
             <button className="secondary-button" type="button" onClick={() => setQuickAddOpen(true)}>
               <ListPlus size={18} />
               Quick add
+            </button>
+            <button className="secondary-button" type="button" onClick={() => setSectionSettingsOpen(true)}>
+              <Settings2 size={18} />
+              Sections
             </button>
             <button
               className="icon-button"
@@ -262,20 +394,91 @@ export default function Dashboard({ session, supabase }: Props) {
           <Stat label="Record" value={allTimeRecord} tone="cyan" />
         </section>
 
+        <section className="mb-5 rounded-md border border-line bg-panel/80 p-3">
+          <div className="grid gap-3 lg:grid-cols-[minmax(12rem,16rem)_minmax(14rem,1fr)_minmax(14rem,1fr)] lg:items-end">
+            <label>
+              <span className="label inline-flex items-center gap-2">
+                <Tags size={14} />
+                Group
+              </span>
+              <select
+                className="field mt-1"
+                value={selectedGroupId}
+                onChange={(event) => setSelectedGroupId(event.target.value)}
+              >
+                <option value="">All groups</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <form className="grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={handleCreateGroup}>
+              <label>
+                <span className="label">New Group</span>
+                <input
+                  className="field mt-1"
+                  placeholder="World Cup, UFC, Golf..."
+                  value={newGroupName}
+                  onChange={(event) => setNewGroupName(event.target.value)}
+                />
+              </label>
+              <button className="secondary-button mt-0 sm:mt-6" type="submit">
+                <Plus size={17} />
+                Add
+              </button>
+            </form>
+
+            <div className="flex gap-2">
+              {selectedGroup ? (
+                <>
+                  <form className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(8rem,1fr)_auto]" onSubmit={handleRenameGroup}>
+                    <label>
+                      <span className="label">Edit Group</span>
+                      <input
+                        className="field mt-1"
+                        value={groupNameDraft}
+                        onChange={(event) => setGroupNameDraft(event.target.value)}
+                      />
+                    </label>
+                    <button className="icon-button mt-0 sm:mt-6" type="submit" title="Rename group">
+                      <Check size={17} />
+                    </button>
+                  </form>
+                  <button className="icon-button mt-0 hover:border-hot hover:text-hot sm:mt-6" type="button" title="Delete group" onClick={handleDeleteGroup}>
+                    <Trash2 size={17} />
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
         <div className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1">
-          {(['active', 'singles', 'parlays', 'longshots', 'future', 'planned', 'past', 'friends'] as View[]).map((nextView) => (
+          {visibleSections.map((section) => (
             <button
-              key={nextView}
+              key={section.key}
               className={`h-10 min-w-[6.25rem] flex-1 rounded px-3 text-sm font-bold capitalize transition ${
-                view === nextView ? 'bg-glow text-ink' : 'text-slate-300 hover:bg-white/5'
+                view === section.key ? 'bg-glow text-ink' : 'text-slate-300 hover:bg-white/5'
               }`}
               type="button"
-              onClick={() => setView(nextView)}
+              onClick={() => setView(section.key)}
             >
-              {formatSectionLabel(nextView, sectionCounts)}
+              {formatSectionLabel(section.key, section.label, sectionCounts)}
             </button>
           ))}
         </div>
+
+        {view !== 'friends' ? (
+          <div className="mb-5 flex justify-end">
+            <button className="secondary-button" type="button" onClick={() => setShareOpen(true)}>
+              <Share2 size={17} />
+              Share
+            </button>
+          </div>
+        ) : null}
 
         {error ? (
           <div className="mb-4 rounded-md border border-hot/50 bg-hot/10 px-4 py-3 text-sm text-rose-100">
@@ -290,11 +493,12 @@ export default function Dashboard({ session, supabase }: Props) {
             Loading
           </div>
         ) : visibleBets.length ? (
-          <section className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {visibleBets.map((bet, index) => (
               <BetCard
                 key={bet.id}
                 bet={bet}
+                groupName={groups.find((group) => group.id === bet.group_id)?.name}
                 canMoveDown={view !== 'past' && index < visibleBets.length - 1}
                 canMoveUp={view !== 'past' && index > 0}
                 onDelete={handleDelete}
@@ -315,6 +519,7 @@ export default function Dashboard({ session, supabase }: Props) {
       {draft ? (
         <BetForm
           draft={draft}
+          groups={groups}
           onCancel={() => setDraft(null)}
           onSave={handleSave}
         />
@@ -322,8 +527,28 @@ export default function Dashboard({ session, supabase }: Props) {
 
       {quickAddOpen ? (
         <QuickAddForm
+          defaultGroupId={selectedGroupId}
+          groups={groups}
           onCancel={() => setQuickAddOpen(false)}
           onSave={handleQuickSave}
+        />
+      ) : null}
+
+      {sectionSettingsOpen ? (
+        <SectionSettings
+          defaults={DEFAULT_SECTIONS}
+          sections={sections}
+          onCancel={() => setSectionSettingsOpen(false)}
+          onSave={handleSaveSections}
+        />
+      ) : null}
+
+      {shareOpen ? (
+        <ShareSheet
+          bets={visibleBets}
+          groupName={selectedGroup?.name}
+          onClose={() => setShareOpen(false)}
+          title={shareTitle}
         />
       ) : null}
     </main>
@@ -352,20 +577,26 @@ function filterBetsForView(bets: Bet[], view: View): Bet[] {
   });
 }
 
-function formatSectionLabel(view: View, counts: Record<Exclude<View, 'friends'>, number>) {
-  if (view === 'friends') return 'Friends';
-
-  const label = {
-    active: 'Active',
-    future: 'Futures',
-    singles: 'Singles',
-    parlays: 'Parlays',
-    longshots: 'Longshots',
-    planned: 'Bets to Place',
-    past: 'Past',
-  }[view];
-
+function formatSectionLabel(view: View, label: string, counts: Record<Exclude<View, 'friends'>, number>) {
+  if (view === 'friends') return label;
   return `${label} (${counts[view]})`;
+}
+
+function getSectionLabel(view: View, sections: EditableSection[]) {
+  return sections.find((section) => section.key === view)?.label ?? view;
+}
+
+function mergeSections(preferences: SectionPreference[]): EditableSection[] {
+  return DEFAULT_SECTIONS.map((section) => {
+    const preference = preferences.find((nextPreference) => nextPreference.section_key === section.key);
+
+    return {
+      ...section,
+      label: preference?.label || section.label,
+      is_visible: preference?.is_visible ?? section.is_visible,
+      display_order: preference?.display_order ?? section.display_order,
+    };
+  }).sort((first, second) => first.display_order - second.display_order);
 }
 
 function today() {

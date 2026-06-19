@@ -62,3 +62,13 @@ textarea:focus-visible {
     @apply inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line bg-panel px-4 text-sm font-semibold text-slate-100 transition hover:border-glow;
   }
 }
+
+@media print {
+  body {
+    background: #070914;
+  }
+
+  .share-sheet {
+    box-shadow: none;
+  }
+}
