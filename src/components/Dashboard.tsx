@@ -344,8 +344,8 @@ export default function Dashboard({ session, supabase }: Props) {
   }
 
   return (
-    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
+      <div className="mx-auto max-w-[110rem]">
         <header className="mb-6 flex flex-col gap-4 border-b border-line pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-3">
@@ -493,7 +493,7 @@ export default function Dashboard({ session, supabase }: Props) {
             Loading
           </div>
         ) : visibleBets.length ? (
-          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {visibleBets.map((bet, index) => (
               <BetCard
                 key={bet.id}

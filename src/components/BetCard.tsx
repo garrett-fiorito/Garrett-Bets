@@ -36,14 +36,33 @@ export default function BetCard({
 
   return (
     <article className="rounded-md border border-line bg-panel/90 p-4 shadow-neon">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
+      <div className="mb-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
           <div className="mb-2 flex flex-wrap gap-2">
             <Badge>{bet.legs.length > 1 ? `${bet.legs.length}-leg parlay` : 'Single'}</Badge>
             <Badge tone={bet.status === 'pending' ? 'cyan' : 'pink'}>{bet.status}</Badge>
             {groupName ? <Badge tone="pink">{groupName}</Badge> : null}
           </div>
-          <h2 className="line-clamp-2 text-lg font-black">
+          {!readOnly ? (
+            <div className="flex shrink-0 flex-wrap justify-end gap-2">
+              <button className="icon-button" type="button" title="Move up" disabled={!canMoveUp} onClick={onMoveUp}>
+                <ArrowUp size={17} />
+              </button>
+              <button className="icon-button" type="button" title="Move down" disabled={!canMoveDown} onClick={onMoveDown}>
+                <ArrowDown size={17} />
+              </button>
+              <button className="icon-button" type="button" title="Edit" onClick={() => onEdit?.(bet)}>
+                <Pencil size={17} />
+              </button>
+              <button className="icon-button hover:border-hot hover:text-hot" type="button" title="Delete" onClick={() => onDelete?.(bet)}>
+                <Trash2 size={17} />
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="min-w-0">
+          <h2 className="line-clamp-3 break-words text-xl font-black leading-snug">
             {bet.legs.length === 1 ? bet.legs[0]?.description : bet.legs.map((leg) => leg.description).join(' + ')}
           </h2>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold uppercase text-slate-400">
@@ -59,42 +78,26 @@ export default function BetCard({
             </span>
           </div>
         </div>
-        {!readOnly ? (
-          <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
-            <button className="icon-button" type="button" title="Move up" disabled={!canMoveUp} onClick={onMoveUp}>
-              <ArrowUp size={17} />
-            </button>
-            <button className="icon-button" type="button" title="Move down" disabled={!canMoveDown} onClick={onMoveDown}>
-              <ArrowDown size={17} />
-            </button>
-            <button className="icon-button" type="button" title="Edit" onClick={() => onEdit?.(bet)}>
-              <Pencil size={17} />
-            </button>
-            <button className="icon-button hover:border-hot hover:text-hot" type="button" title="Delete" onClick={() => onDelete?.(bet)}>
-              <Trash2 size={17} />
-            </button>
-          </div>
-        ) : null}
       </div>
 
       <div className="mb-4 space-y-2">
         {bet.legs.map((leg) => (
-          <div key={leg.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md bg-ink/70 px-3 py-2">
-            <div className="flex min-w-0 items-center gap-2">
+          <div key={leg.id} className="grid grid-cols-[minmax(0,1fr)_4.5rem] items-start gap-3 rounded-md bg-ink/70 px-3 py-2">
+            <div className="flex min-w-0 items-start gap-2">
               {canTrackLegs ? (
                 <input
                   checked={leg.is_complete}
-                  className="h-4 w-4 shrink-0 accent-limefire"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-limefire"
                   onChange={(event) => onToggleLeg?.(bet.id, leg.id, event.target.checked)}
                   title="Mark leg complete"
                   type="checkbox"
                 />
               ) : null}
-              <span className={`min-w-0 truncate text-sm ${leg.is_complete ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+              <span className={`min-w-0 break-words text-sm leading-snug ${leg.is_complete ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
                 {leg.description}
               </span>
             </div>
-            <span className="max-w-24 truncate font-mono text-sm font-bold text-limefire sm:max-w-none">{formatAmericanOdds(leg.odds)}</span>
+            <span className="text-right font-mono text-sm font-bold text-limefire">{formatAmericanOdds(leg.odds)}</span>
           </div>
         ))}
       </div>
