@@ -175,6 +175,8 @@ export default function Dashboard({ session, supabase }: Props) {
     return `${wins}-${losses}-${pushes}`;
   }, [groupedBets]);
 
+  const trackingAgeLabel = useMemo(() => formatTrackingAge(groupedBets), [groupedBets]);
+
   const selectedGroup = groups.find((group) => group.id === selectedGroupId);
   const shareTitle = getSectionLabel(view, sections);
 
@@ -390,8 +392,13 @@ export default function Dashboard({ session, supabase }: Props) {
         <section className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Current Risk" value={formatCurrency(pendingExposure)} />
           <Stat label="Potential Profit" value={formatCurrency(pendingPayout)} tone="lime" />
-          <Stat label="All Time Win / Loss" value={formatCurrency(allTimeNet)} tone={allTimeNet >= 0 ? 'lime' : 'pink'} />
-          <Stat label="Record" value={allTimeRecord} tone="cyan" />
+          <Stat
+            detail={trackingAgeLabel}
+            label="All Time Win / Loss"
+            value={formatCurrency(allTimeNet)}
+            tone={allTimeNet >= 0 ? 'lime' : 'pink'}
+          />
+          <Stat detail={trackingAgeLabel} label="Record" value={allTimeRecord} tone="cyan" />
         </section>
 
         <section className="mb-5 rounded-md border border-line bg-panel/80 p-3">
@@ -603,7 +610,32 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function Stat({ label, value, tone = 'pink' }: { label: string; value: string; tone?: 'pink' | 'lime' | 'cyan' }) {
+function formatTrackingAge(bets: Bet[]) {
+  if (!bets.length) return 'No bets tracked yet';
+
+  const firstTrackedAt = Math.min(
+    ...bets
+      .map((bet) => new Date(bet.created_at).getTime())
+      .filter(Number.isFinite),
+  );
+
+  if (!Number.isFinite(firstTrackedAt)) return 'Started tracking today';
+
+  const days = Math.max(0, Math.floor((Date.now() - firstTrackedAt) / 86_400_000));
+  return `Started tracking ${days} ${days === 1 ? 'day' : 'days'} ago`;
+}
+
+function Stat({
+  detail,
+  label,
+  value,
+  tone = 'pink',
+}: {
+  detail?: string;
+  label: string;
+  value: string;
+  tone?: 'pink' | 'lime' | 'cyan';
+}) {
   const toneClass = {
     pink: 'text-hot',
     lime: 'text-limefire',
@@ -614,6 +646,7 @@ function Stat({ label, value, tone = 'pink' }: { label: string; value: string; t
     <div className="rounded-md border border-line bg-panel/80 p-4">
       <p className="label">{label}</p>
       <p className={`mt-1 text-2xl font-black ${toneClass}`}>{value}</p>
+      {detail ? <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{detail}</p> : null}
     </div>
   );
 }
